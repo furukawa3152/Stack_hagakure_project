@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>はがくれ君プレビュー</title>
+  <style>
+    :root {
+      --paper: #e7f0e6;
+      --ink: #2f3430;
+      --sage: #c5d9c8;
+      --bezel: #2c3330;
+      --chip: #24302a;
+      --chip-text: #f4f7f2;
+      --warn: #8c3d3d;
+      --ok: #2f6b45;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Yu Gothic UI", "Hiragino Sans", "Meiryo", sans-serif;
+      color: var(--ink);
+      background: var(--paper);
+    }
+    main {
+      display: grid;
+      grid-template-columns: minmax(280px, 420px) minmax(280px, 1fr);
+      gap: 28px;
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 28px 24px 48px;
+    }
+    h1 { font-size: 28px; margin: 0 0 8px; }
+    p { line-height: 1.6; }
+    .lede { margin-top: 0; }
+    .device {
+      background: var(--bezel);
+      border-radius: 28px;
+      padding: 18px 18px 22px;
+      box-shadow: 0 16px 40px rgba(40, 50, 40, 0.18);
+    }
+    canvas {
+      width: 100%;
+      height: auto;
+      background: var(--sage);
+      border-radius: 8px;
+      touch-action: none;
+      cursor: pointer;
+    }
+    .hint { color: #d7e4d8; font-size: 13px; margin: 10px 4px 0; }
+    .panel h2 { font-size: 16px; margin: 22px 0 8px; }
+    .chips { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
+    .chip {
+      background: var(--chip);
+      color: var(--chip-text);
+      border-radius: 999px;
+      padding: 6px 12px;
+      font-size: 13px;
+      letter-spacing: 0.04em;
+    }
+    .chip.off { background: var(--warn); }
+    .chip.on { background: var(--ok); }
+    .row { display: flex; flex-wrap: wrap; gap: 8px; }
+    button, input {
+      font: inherit;
+      color: var(--ink);
+    }
+    button {
+      background: white;
+      border: 1px solid #b7c7b8;
+      border-radius: 999px;
+      padding: 8px 14px;
+      cursor: pointer;
+    }
+    button[aria-pressed="true"] { background: #24302a; color: white; border-color: #24302a; }
+    input[type="text"] {
+      width: 100%;
+      border: 1px solid #b7c7b8;
+      border-radius: 12px;
+      padding: 10px 12px;
+      background: white;
+    }
+    #decision, #log {
+      background: white;
+      border-radius: 12px;
+      padding: 12px 14px;
+      min-height: 48px;
+    }
+    #log { white-space: pre-wrap; font-size: 13px; color: #445248; }
+    @media (max-width: 800px) {
+      main { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section>
+      <div class="device">
+        <canvas id="screen" width="640" height="480" aria-label="はがくれ君の Core2 画面プレビュー"></canvas>
+        <p class="hint">画面を短く押すと呼びかけ、長く押すとマイクが切り替わります。実機には未書き込みです。</p>
+      </div>
+    </section>
+    <section class="panel">
+      <h1>はがくれ君</h1>
+      <p class="lede">原画をそのまま画面に置き、状態と口の開きだけを重ねています。クラウドにはつながっていません。</p>
+      <div class="chips">
+        <span id="mic-chip" class="chip off">MIC OFF</span>
+        <span id="cloud-chip" class="chip">CLOUD INACTIVE</span>
+        <span id="phase-chip" class="chip" aria-live="polite">未接続</span>
+      </div>
+      <h2>表情の確認</h2>
+      <div class="row" id="phases"></div>
+      <h2>Gateway</h2>
+      <div class="row">
+        <button id="connect" type="button">接続する</button>
+        <button id="mic-toggle" type="button">マイク ON</button>
+      </div>
+      <h2>発言の判断</h2>
+      <p>段階Aです。マイク ON のあと、名前がある文だけ返答になります。</p>
+      <input id="transcript" type="text" value="はがくれ君、どう思う？" aria-label="試しの書き起こし">
+      <div class="row" style="margin-top: 8px">
+        <button id="judge" type="button">判断させる</button>
+      </div>
+      <p id="decision" aria-live="polite">まだ判断していません。</p>
+      <h2>受信</h2>
+      <div id="log"></div>
+    </section>
+  </main>
+  <script>
+    const PHASES = [
+      ["idle", "待機"],
+      ["listening", "聞いている"],
+      ["thinking", "考えている"],
+      ["waiting_turn", "順番待ち"],
+      ["speaking", "話している"],
+      ["interrupted", "中断"],
+      ["muted", "マイク停止"],
+      ["disconnected", "未接続"],
+      ["error", "エラー"]
+    ];
+    const REASONS = {
+      addressed: "名前を呼ばれたので返答します",
+      proactive: "自発発言の条件を満たしたので話します",
+      proactive_off: "名前がないので黙ります",
+      mic_off: "マイクが止まっているので黙ります",
+      human_speaking: "人が話しているので黙ります",
+      ai_speaking: "自分の発話中なので重ねません",
+      human_started: "人が話し始めたので発言を取り消します",
+      low_value: "足せる情報が小さいので黙ります",
+      not_enough_silence: "会話の隙間が足りないので待ちます",
+      cooldown: "直前に話したので待ちます",
+      rate_limited: "自発発言の回数を超えたので黙ります",
+      low_confidence: "聞き取りが不確かなので黙ります"
+    };
+    const ACTIONS = { speak: "返答してよい", silence: "黙る", cancel: "取り消す" };
+    // 原画 1125×842 上の黒目と口。画素を測った位置。
+    const EYES = [
+      { x: 0.342, y: 0.490 },
+      { x: 0.541, y: 0.490 }
+    ];
+    const MOUTH = { x: 0.441, y: 0.635 };
+
+    const canvas = document.getElementById("screen");
+    const ctx = canvas.getContext("2d");
+    const image = new Image();
+    image.src = "/assets/reference/chonmage_character_reference.jpeg";
+
+    let phase = "disconnected";
+    let mic = false;
+    let cloud = false;
+    let mouth = 0;
+    let blink = false;
+    let ws = null;
+    const logBox = document.getElementById("log");
+
+    const phaseHost = document.getElementById("phases");
+    for (const [id, label] of PHASES) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = label;
+      button.dataset.phase = id;
+      button.addEventListener("click", () => setPhase(id));
+      phaseHost.appendChild(button);
+    }
+
+    function setPhase(next) {
+      phase = next;
+      for (const button of phaseHost.querySelectorAll("button")) {
+        button.setAttribute("aria-pressed", button.dataset.phase === phase ? "true" : "false");
+      }
+      document.getElementById("phase-chip").textContent = PHASES.find((item) => item[0] === phase)[1];
+    }
+
+    function renderChips() {
+      const micChip = document.getElementById("mic-chip");
+      micChip.textContent = mic ? "MIC ON" : "MIC OFF";
+      micChip.className = mic ? "chip on" : "chip off";
+      const cloudChip = document.getElementById("cloud-chip");
+      cloudChip.textContent = cloud ? "CLOUD ACTIVE" : "CLOUD INACTIVE";
+      cloudChip.className = cloud ? "chip on" : "chip";
+      document.getElementById("mic-toggle").textContent = mic ? "マイク OFF" : "マイク ON";
+    }
+
+    function note(line) {
+      logBox.textContent = `${line}\n${logBox.textContent}`.slice(0, 1200);
+    }
+
+    function drawnRect() {
+      const scale = Math.min(canvas.width / image.width, canvas.height / image.height);
+      const width = image.width * scale;
+      const height = image.height * scale;
+      return {
+        x: (canvas.width - width) / 2,
+        y: (canvas.height - height) / 2,
+        width,
+        height
+      };
+    }
+
+    function point(fractionX, fractionY, rect) {
+      return {
+        x: rect.x + fractionX * rect.width,
+        y: rect.y + fractionY * rect.height
+      };
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "#d5e4d8";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      if (image.complete && image.naturalWidth) {
+        const rect = drawnRect();
+        ctx.drawImage(image, rect.x, rect.y, rect.width, rect.height);
+        const closed = blink || phase === "disconnected";
+        if (closed) {
+          ctx.fillStyle = "#fcebe4";
+          for (const eye of EYES) {
+            const at = point(eye.x, eye.y, rect);
+            ctx.beginPath();
+            ctx.ellipse(at.x, at.y, rect.width * 0.014, rect.height * 0.016, 0, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+        if (phase === "speaking") {
+          const at = point(MOUTH.x, MOUTH.y, rect);
+          const open = 0.25 + mouth * 0.75;
+          ctx.fillStyle = "#e7a3a8";
+          ctx.beginPath();
+          ctx.ellipse(at.x, at.y, rect.width * 0.035, rect.height * 0.028 * open, 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        if (phase === "error") {
+          ctx.strokeStyle = "#8c3d3d";
+          ctx.lineWidth = 8;
+          ctx.strokeRect(8, 8, canvas.width - 16, canvas.height - 16);
+        }
+      }
+      requestAnimationFrame(draw);
+    }
+
+    function setMic(enabled) {
+      mic = enabled;
+      if (!enabled && phase !== "disconnected") setPhase("muted");
+      if (enabled && (phase === "muted" || phase === "disconnected")) setPhase("idle");
+      renderChips();
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: "mute", mic_enabled: enabled }));
+      }
+    }
+
+    document.getElementById("mic-toggle").addEventListener("click", () => setMic(!mic));
+
+    let hold = 0;
+    canvas.addEventListener("pointerdown", () => {
+      hold = window.setTimeout(() => {
+        hold = 0;
+        setMic(!mic);
+        note(mic ? "長押し: マイク ON" : "長押し: マイク OFF");
+      }, 600);
+    });
+    canvas.addEventListener("pointerup", () => {
+      if (hold) {
+        window.clearTimeout(hold);
+        hold = 0;
+        note("タップ: 呼びかけ");
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: "touch", gesture: "tap" }));
+        }
+      }
+    });
+    canvas.addEventListener("pointerleave", () => {
+      if (hold) {
+        window.clearTimeout(hold);
+        hold = 0;
+      }
+    });
+
+    document.getElementById("connect").addEventListener("click", () => {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.close();
+        return;
+      }
+      ws = new WebSocket("ws://127.0.0.1:8775/device");
+      ws.addEventListener("open", () => {
+        document.getElementById("connect").textContent = "切断する";
+        ws.send(JSON.stringify({
+          type: "hello",
+          protocol_version: 1,
+          device_id: "preview",
+          audio_in: { rate: 16000, channels: 1, format: "pcm_s16le" }
+        }));
+      });
+      ws.addEventListener("message", (event) => {
+        if (typeof event.data !== "string") return;
+        const message = JSON.parse(event.data);
+        note(message.type + (message.reason ? " / " + message.reason : ""));
+        if (message.type === "hello_ack") {
+          mic = false;
+          cloud = Boolean(message.cloud_active);
+          setPhase(message.phase || "muted");
+          renderChips();
+        }
+        if (message.type === "mute_ack") {
+          mic = Boolean(message.mic_enabled);
+          setPhase(message.phase || phase);
+          renderChips();
+        }
+        if (message.type === "policy_decision") {
+          const action = ACTIONS[message.action] || message.action;
+          const reason = REASONS[message.reason] || message.reason;
+          document.getElementById("decision").textContent = `${action}。${reason}`;
+        }
+        if (message.type === "error") {
+          document.getElementById("decision").textContent = message.message || message.code;
+        }
+      });
+      ws.addEventListener("close", () => {
+        document.getElementById("connect").textContent = "接続する";
+        cloud = false;
+        renderChips();
+        note("切断");
+      });
+    });
+
+    document.getElementById("judge").addEventListener("click", () => {
+      const text = document.getElementById("transcript").value;
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        document.getElementById("decision").textContent = "Gateway に未接続です。先に接続してください。";
+        return;
+      }
+      ws.send(JSON.stringify({
+        type: "transcript",
+        text,
+        human_speaking: false,
+        silence_seconds: 3,
+        usefulness_score: 0.9
+      }));
+    });
+
+    window.setInterval(() => {
+      if (phase === "disconnected" || phase === "error") return;
+      blink = true;
+      window.setTimeout(() => { blink = false; }, 140);
+    }, 4200);
+
+    window.setInterval(() => {
+      if (phase === "speaking") {
+        mouth = 0.35 + 0.65 * Math.abs(Math.sin(Date.now() / 140));
+      } else {
+        mouth = 0;
+      }
+    }, 50);
+
+    setPhase("disconnected");
+    renderChips();
+    requestAnimationFrame(draw);
+  </script>
+</body>
+</html>

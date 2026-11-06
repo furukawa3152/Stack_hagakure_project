@@ -1,0 +1,12 @@
+.env
+config/config.yaml
+usage.jsonl
+.research/
+.venv/
+server/.venv/
+**/__pycache__/
+**/*.pyc
+.pytest_cache/
+*.egg-info/
+.mypy_cache/
+.ruff_cache/

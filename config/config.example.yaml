@@ -1,0 +1,30 @@
+# はがくれ君 — 初期設定。秘密は .env に置く。
+# 自発発言の数値は仕様書の仮値。段階Aのため proactive_enabled は false。
+
+conversation:
+  language: ja
+  character_name: はがくれ君
+  call_names:
+    - はがくれ君
+    - はがくれ
+    - ちょんまげ君
+  mode: stage_a
+  proactive_enabled: false
+  proactive_threshold: 0.85
+  minimum_silence_seconds: 2.0
+  proactive_cooldown_seconds: 60
+  max_proactive_utterances_per_5min: 1
+  max_proactive_utterance_seconds: 15
+  direct_call_priority: high
+  barge_in_enabled: false
+  store_raw_audio: false
+
+audio:
+  uplink_rate: 16000
+  frame_ms: 20
+  format: pcm_s16le
+
+gateway:
+  host: 127.0.0.1
+  port: 8775
+  preview_port: 8776
