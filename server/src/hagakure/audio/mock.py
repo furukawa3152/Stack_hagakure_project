@@ -26,6 +26,44 @@ def pcm_s16le_silence(seconds: float = 0.02, sample_rate: int = 16000) -> bytes:
     return b"\x00\x00" * count
 
 
+def resample_s16le(pcm: bytes, source_rate: int, target_rate: int) -> bytes:
+    """16bit リトルエンディアンを線形補間で詰め直す。レートが同じならそのまま返す。"""
+    if source_rate <= 0 or target_rate <= 0:
+        raise ValueError("サンプルレートが不正です")
+    count = len(pcm) // 2
+    if count == 0 or source_rate == target_rate:
+        return pcm[: count * 2]
+    samples = struct.unpack("<" + "h" * count, pcm[: count * 2])
+    out_count = count * target_rate // source_rate
+    if out_count <= 0:
+        return b""
+    last = count - 1
+    out: list[int] = []
+    for index in range(out_count):
+        pos = index * source_rate / target_rate
+        left = int(pos)
+        if left >= last:
+            mixed = samples[last]
+        else:
+            frac = pos - left
+            mixed = round(samples[left] * (1.0 - frac) + samples[left + 1] * frac)
+        if mixed > 32767:
+            mixed = 32767
+        elif mixed < -32768:
+            mixed = -32768
+        out.append(mixed)
+    return struct.pack("<" + "h" * out_count, *out)
+
+
+def mean_abs_s16le(pcm: bytes) -> int:
+    """サンプルの絶対値の平均。空や端数バイトは 0。"""
+    count = len(pcm) // 2
+    if count == 0:
+        return 0
+    samples = struct.unpack("<" + "h" * count, pcm[: count * 2])
+    return sum(abs(sample) for sample in samples) // count
+
+
 def rms_s16le(pcm: bytes) -> float:
     """0.0 から 1.0 程度の振幅。空や端数バイトは 0。"""
     count = len(pcm) // 2

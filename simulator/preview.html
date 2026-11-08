@@ -97,12 +97,12 @@
     <section>
       <div class="device">
         <canvas id="screen" width="640" height="480" aria-label="はがくれ君の Core2 画面プレビュー"></canvas>
-        <p class="hint">画面を短く押すと呼びかけ、長く押すとマイクが切り替わります。実機には未書き込みです。</p>
+        <p class="hint">画面を短く押すと呼びかけ、長く押すとマイクが切り替わります。実機もこの重ね方です。指は話しているときだけ出ます。</p>
       </div>
     </section>
     <section class="panel">
       <h1>はがくれ君</h1>
-      <p class="lede">原画をそのまま画面に置き、状態と口の開きだけを重ねています。クラウドにはつながっていません。</p>
+      <p class="lede">服はいつも出します。指と開いた口は、話しているときだけです。</p>
       <div class="chips">
         <span id="mic-chip" class="chip off">MIC OFF</span>
         <span id="cloud-chip" class="chip">CLOUD INACTIVE</span>
@@ -153,22 +153,21 @@
       low_confidence: "聞き取りが不確かなので黙ります"
     };
     const ACTIONS = { speak: "返答してよい", silence: "黙る", cancel: "取り消す" };
-    // 原画 1125×842 上の黒目と口。画素を測った位置。
-    const EYES = [
-      { x: 0.342, y: 0.490 },
-      { x: 0.541, y: 0.490 }
-    ];
-    const MOUTH = { x: 0.441, y: 0.635 };
+    const PARTS = ["clothes", "face_base", "eyes_open", "eyes_closed", "nose", "mouth_closed", "mouth_open", "finger"];
 
     const canvas = document.getElementById("screen");
     const ctx = canvas.getContext("2d");
-    const image = new Image();
-    image.src = "/assets/reference/chonmage_character_reference.jpeg";
+    const parts = {};
+    for (const name of PARTS) {
+      const img = new Image();
+      img.src = "/assets/face/" + name + ".png";
+      parts[name] = img;
+    }
 
     let phase = "disconnected";
     let mic = false;
     let cloud = false;
-    let mouth = 0;
+    let talk = false;
     let blink = false;
     let ws = null;
     const logBox = document.getElementById("log");
@@ -205,55 +204,32 @@
       logBox.textContent = `${line}\n${logBox.textContent}`.slice(0, 1200);
     }
 
-    function drawnRect() {
-      const scale = Math.min(canvas.width / image.width, canvas.height / image.height);
-      const width = image.width * scale;
-      const height = image.height * scale;
-      return {
-        x: (canvas.width - width) / 2,
-        y: (canvas.height - height) / 2,
-        width,
-        height
-      };
-    }
-
-    function point(fractionX, fractionY, rect) {
-      return {
-        x: rect.x + fractionX * rect.width,
-        y: rect.y + fractionY * rect.height
-      };
-    }
-
     function draw() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.fillStyle = "#d5e4d8";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-      if (image.complete && image.naturalWidth) {
-        const rect = drawnRect();
-        ctx.drawImage(image, rect.x, rect.y, rect.width, rect.height);
-        const closed = blink || phase === "disconnected";
-        if (closed) {
-          ctx.fillStyle = "#fcebe4";
-          for (const eye of EYES) {
-            const at = point(eye.x, eye.y, rect);
-            ctx.beginPath();
-            ctx.ellipse(at.x, at.y, rect.width * 0.014, rect.height * 0.016, 0, 0, Math.PI * 2);
-            ctx.fill();
-          }
-        }
-        if (phase === "speaking") {
-          const at = point(MOUTH.x, MOUTH.y, rect);
-          const open = 0.25 + mouth * 0.75;
-          ctx.fillStyle = "#e7a3a8";
-          ctx.beginPath();
-          ctx.ellipse(at.x, at.y, rect.width * 0.035, rect.height * 0.028 * open, 0, 0, Math.PI * 2);
-          ctx.fill();
-        }
-        if (phase === "error") {
-          ctx.strokeStyle = "#8c3d3d";
-          ctx.lineWidth = 8;
-          ctx.strokeRect(8, 8, canvas.width - 16, canvas.height - 16);
-        }
+      const screen = canvas.width / 320;
+      const place = 0.17 * screen;
+      const eyes = blink ? "eyes_closed" : "eyes_open";
+      const mouth = phase === "speaking" && talk ? "mouth_open" : "mouth_closed";
+      function drawPart(img, dx, dy, localScale, cx, cy) {
+        if (!img.complete || !img.naturalWidth) return;
+        const fit = localScale || 1;
+        const w = 1254 * place * fit;
+        const h = 1254 * place * fit;
+        const x = 54 * screen + (dx + cx * (1 - fit)) * place;
+        const y = -20 * screen + (dy + cy * (1 - fit)) * place;
+        ctx.drawImage(img, x, y, w, h);
+      }
+      drawPart(parts.clothes, 0, 200, 1, 0, 0);
+      drawPart(parts.face_base, 0, 0, 1, 0, 0);
+      drawPart(parts[eyes], 0, 104, 1, 0, 0);
+      drawPart(parts.nose, 0, 143, 0.9, 628.5, 648.5);
+      drawPart(parts[mouth], 0, 0, 1, 0, 0);
+      if (phase === "speaking") drawPart(parts.finger, 380, 189, 1, 0, 0);
+      if (phase === "error") {
+        ctx.strokeStyle = "#8c3d3d";
+        ctx.lineWidth = 8;
+        ctx.strokeRect(8, 8, canvas.width - 16, canvas.height - 16);
       }
       requestAnimationFrame(draw);
     }
@@ -364,12 +340,8 @@
     }, 4200);
 
     window.setInterval(() => {
-      if (phase === "speaking") {
-        mouth = 0.35 + 0.65 * Math.abs(Math.sin(Date.now() / 140));
-      } else {
-        mouth = 0;
-      }
-    }, 50);
+      talk = phase === "speaking" && !talk;
+    }, 160);
 
     setPhase("disconnected");
     renderChips();

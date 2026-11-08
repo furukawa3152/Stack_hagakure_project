@@ -36,6 +36,9 @@ def test_name_is_answered_and_plain_talk_is_not() -> None:
     plain = policy.decide(_ctx(transcript="今度の勉強会どうしよう", usefulness_score=0.95))
     assert plain.action == "silence"
     assert plain.reason == "proactive_off"
+    kanji = policy.decide(_ctx(transcript="葉隠れ君"))
+    assert kanji.action == "speak"
+    assert kanji.reason == "addressed"
 
 
 def test_mic_off_and_overlap_block_speech() -> None:

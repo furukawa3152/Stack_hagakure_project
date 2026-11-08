@@ -41,12 +41,12 @@ Gateway は `gateway/` にあり、MIT。ロボットとは XiaoZhi の WebSocke
 | 部品 | 場所 | 今の中身 |
 |---|---|---|
 | DeviceTransport | `server/src/hagakure/transport/` | `/device` の WebSocket。JSON と PCM を分ける |
-| ConversationPolicy | `server/src/hagakure/conversation/policy.py` | 段階Aの判断。本文は保存しない |
+| ConversationPolicy | `server/src/hagakure/conversation/policy.py` | 段階Aの判断。Gemini の往復でも、呼び名が無い音声は返さない。本文は保存しない |
 | 状態 | `server/src/hagakure/conversation/state.py` | 仕様の 9 状態 |
 | AvatarController | `server/src/hagakure/avatar/controller.py` | 状態名と、振幅から口の開き |
-| VoiceBackend | `server/src/hagakure/adapters/voice.py` | エコーは動く。Gemini は拒否 |
+| VoiceBackend | `server/src/hagakure/adapters/voice.py` | 同じ接続でセッションを使い回す。音声チャンクは届き次第 16 kHz へ詰める |
 | TaskAgent | `server/src/hagakure/adapters/task_agent.py` | Grok Bot は拒否 |
-| プレビュー | `simulator/preview.html` | 原画の上に状態表示 |
+| プレビュー | `simulator/preview.html` | 顔パーツを重ね、瞬きと口の開閉 |
 | ファームウェア | `firmware/core2/README.md` | 未着手 |
 
 判断の順序は、マイク OFF、自分の発話中、人の発話、空の書き起こし、呼び名、自発発言の条件、の順。自発発言は設定で切ってある。

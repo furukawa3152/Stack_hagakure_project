@@ -19,6 +19,11 @@ class Settings:
     preview_port: int = 8776
     device_token: str = ""
     sample_rate: int = 16000
+    gemini_api_key: str = ""
+    gemini_model: str = "gemini-3.8-live"
+    voice: str = "echo"
+    save_transcripts: bool = False
+    transcript_dir: Path | None = None
 
 
 def project_root() -> Path:
@@ -55,6 +60,11 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
         preview_port=_env_int(source, "HAGAKURE_PREVIEW_PORT", 8776),
         device_token=source.get("HAGAKURE_DEVICE_TOKEN", "").strip(),
         sample_rate=16000,
+        gemini_api_key=source.get("GEMINI_API_KEY", "").strip(),
+        gemini_model=source.get("GEMINI_MODEL", "").strip() or "gemini-3.8-live",
+        voice=source.get("HAGAKURE_VOICE", "").strip() or "echo",
+        save_transcripts=source.get("HAGAKURE_SAVE_TRANSCRIPTS", "").strip() == "1",
+        transcript_dir=project_root() / "data" / "conversations",
     )
 
 

@@ -52,7 +52,11 @@ def _check() -> int:
     print(f"character: {policy.config.character_name}")
     print(f"proactive_enabled: {str(policy.config.proactive_enabled).lower()}")
     print(f"token_required: {str(bool(settings.device_token)).lower()}")
-    print("cloud: not_connected")
+    print(f"gemini_key_set: {str(bool(settings.gemini_api_key)).lower()}")
+    print(f"gemini_model: {settings.gemini_model}")
+    print(f"voice: {settings.voice}")
+    print("grok_bot: held")
+    print("cloud: on_utterance" if settings.voice == "gemini" and settings.gemini_api_key else "cloud: not_connected")
     return 0
 
 
@@ -70,7 +74,13 @@ async def _run() -> None:
     print(f"はがくれ君 Gateway {__version__}", flush=True)
     print(f"音声: ws://{settings.host}:{port}/device", flush=True)
     print(f"プレビュー: http://127.0.0.1:{preview.server_address[1]}/simulator/preview.html", flush=True)
-    print("クラウド API には接続していません。音声は保存しません。Ctrl+C で停止します。", flush=True)
+    if settings.voice == "gemini" and settings.gemini_api_key:
+        print(
+            "発話の区切りで Gemini Live を呼びます。呼び名があればチャンクを届き次第返します。空の書き起こしはターンの終わりで返します。名前の無い書き起こしは返しません。音声は保存しません。Ctrl+C で停止します。",
+            flush=True,
+        )
+    else:
+        print("クラウド API には接続していません。音声は保存しません。Ctrl+C で停止します。", flush=True)
     await server.serve_forever()
 
 

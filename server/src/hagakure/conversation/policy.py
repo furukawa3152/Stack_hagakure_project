@@ -11,7 +11,13 @@ from dataclasses import dataclass, field
 @dataclass
 class PolicyConfig:
     character_name: str = "はがくれ君"
-    call_names: tuple[str, ...] = ("はがくれ君", "はがくれ", "ちょんまげ君")
+    call_names: tuple[str, ...] = (
+        "はがくれ君",
+        "はがくれ",
+        "ちょんまげ君",
+        "葉隠れ君",
+        "葉隠れ",
+    )
     language: str = "ja"
     mode: str = "stage_a"
     proactive_enabled: bool = False

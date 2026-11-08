@@ -82,7 +82,7 @@ def test_cloud_adapters_are_not_connected() -> None:
         await echo.send_audio(b"\x00\x00")
         events = [event async for event in echo.receive_events()]
         assert events[0]["pcm"] == b"\x00\x00"
-        with pytest.raises(NotImplementedError):
+        with pytest.raises(RuntimeError):
             await GeminiLiveBackend().connect()
         with pytest.raises(NotImplementedError):
             await GrokBotTaskAgent().submit_task("調べて")

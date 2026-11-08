@@ -2,17 +2,17 @@
 
 M5Stack Core2 の画面に置く、ちょんまげのキャラクターです。人の会話を聞き、名前を呼ばれたら返すところまでを目指します。今あるのは、その前段のコンピュータ側だけです。
 
-実機への書き込み、Gemini、Grok Bot 接続はまだです。画面のプレビューと、音声フレームのエコーは、Core2 がなくても確認できます。
+2026-11-07 に、画面、タッチ、マイク、スピーカー、Wi-Fi の hello、16 kHz で 2 秒のエコーと、その再生が聞こえたことを確認した。同じ日、Gemini Live へテキストで 1 回頼み、24 kHz の音声が返った。夜、Core2 のマイク 2 秒に対する返答がスピーカーから聞こえた。続けて同じ接続で 3 往復し、いずれも再生開始まで進んだ。Grok Bot 連携は保留です。
 
 ## 準備で置いたもの
 
 - `server/` — WebSocket Gateway。PCM を返し、発言してよいかを判断する。
-- `simulator/preview.html` — 原画の表情プレビュー。
+- `simulator/preview.html` — 顔パーツのプレビュー。
 - `simulator/mock_device.py` — ダミー PCM を送る端末。
 - `config/config.example.yaml` — 呼び名と段階Aのパラメータ。
 - `docs/decisions.md` — Groki Bot を調べたうえでの採用理由。
 
-原画は `assets/reference/chonmage_character_reference.jpeg` です。
+参照の原画は `assets/reference/chonmage_character_reference.jpeg` です。画面に出す顔は `assets/face/` の 6 枚です。
 
 ## Windows（Git Bash）
 

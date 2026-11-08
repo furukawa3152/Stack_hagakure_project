@@ -1,4 +1,5 @@
 .env
+firmware/core2/wifi_link/secrets.h
 config/config.yaml
 usage.jsonl
 .research/
@@ -10,3 +11,4 @@ server/.venv/
 *.egg-info/
 .mypy_cache/
 .ruff_cache/
+data/conversations/

@@ -13,7 +13,7 @@
 | 認証失敗とループバック制限 | 同上 |
 | 書き起こし本文を返答に含めない | 同上 |
 | WebSocket で PCM が往復する | `server/tests/test_gateway.py` |
-| プレビューで原画、MIC 表示、接続、判断が見える | ブラウザで `simulator/preview.html` |
+| プレビューで顔、MIC 表示、接続、判断が見える | ブラウザで `simulator/preview.html` |
 
 ## 実機待ち
 

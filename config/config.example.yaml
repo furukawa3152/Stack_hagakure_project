@@ -8,6 +8,8 @@ conversation:
     - はがくれ君
     - はがくれ
     - ちょんまげ君
+    - 葉隠れ君
+    - 葉隠れ
   mode: stage_a
   proactive_enabled: false
   proactive_threshold: 0.85
